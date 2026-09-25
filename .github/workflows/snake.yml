@@ -1,0 +1,44 @@
+name: contribution snake
+
+on:
+  schedule:
+    - cron: "0 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  snake:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Fetch contribution calendar
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh api graphql -f query='
+          query {
+            user(login: "askmaddyy") {
+              contributionsCollection {
+                contributionCalendar {
+                  totalContributions
+                  weeks { contributionDays { date contributionCount weekday } }
+                }
+              }
+            }
+          }' > contributions.json
+
+      - name: Generate snake SVGs
+        run: |
+          python3 scripts/generate-snake.py --input contributions.json --palette dark --out assets/contribution-snake-dark.svg
+          python3 scripts/generate-snake.py --input contributions.json --palette light --out assets/contribution-snake.svg
+
+      - name: Commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add assets/contribution-snake-dark.svg assets/contribution-snake.svg
+          git commit -m "chore: update contribution snake" || echo "no changes"
+          git push
